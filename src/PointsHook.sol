@@ -8,9 +8,12 @@ import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {SwapParams} from "v4-core/types/PoolOperation.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 
+import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 
 contract PointsHook is BaseHook, ERC1155 {
+    using PoolIdLibrary for PoolKey;
+
     constructor(IPoolManager _manager) BaseHook(_manager) {}
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -36,11 +39,40 @@ contract PointsHook is BaseHook, ERC1155 {
         return ""; // URI not implemented
     }
 
-    function _afterSwap(address, PoolKey calldata, SwapParams calldata, BalanceDelta, bytes calldata)
-        internal
-        override
-        returns (bytes4, int128)
-    {
+    function _afterSwap(
+        address,
+        PoolKey calldata key,
+        SwapParams calldata swapParams,
+        BalanceDelta delta,
+        bytes calldata hookdata
+    ) internal override returns (bytes4, int128) {
+        // ETH- TOKEN
+        // Not mint points for swaps involving token0 being address(0)
+        if (!key.currency0.isAddressZero()) {
+            return (this.afterSwap.selector, 0);
+        }
+
+        // We only mint points if user is buying TOKEN with ETH
+        if (!swapParams.zeroForOne) {
+            return (this.afterSwap.selector, 0);
+        }
+
+        uint256 ethSpendAmount = uint256(int256(-delta.amount0())); // amount0 is negative when user is spending ETH
+        uint256 pointsForSwap = ethSpendAmount / 5; // 20% of ETH spent (divide by 5)
+
+        _assignPoints(key.toId(), hookdata, pointsForSwap);
+
         return (this.afterSwap.selector, 0);
+    }
+
+    function _assignPoints(PoolId poolId, bytes calldata hookdata, uint256 points) internal {
+        if (hookdata.length == 0 || points == 0) {
+            return;
+        }
+        address user = abi.decode(hookdata, (address));
+
+        if (user != address(0)) {
+            _mint(user, uint256(PoolId.unwrap(poolId)), points, "");
+        }
     }
 }
