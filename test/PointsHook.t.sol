@@ -76,9 +76,7 @@ contract PointsHookTest is Test, Deployers, ERC1155TokenReceiver {
         uint128 tokenToAdd =
             LiquidityAmounts.getLiquidityForAmount1(sqrtPriceAtTickLower, SQRT_PRICE_1_1, liquidityDelta);
 
-        modifyLiquidityRouter.modifyLiquidity{
-            value: ethToAdd
-        }(
+        modifyLiquidityRouter.modifyLiquidity{value: ethToAdd}(
             key,
             ModifyLiquidityParams({
                 tickLower: -60, tickUpper: 60, liquidityDelta: int256(uint256(liquidityDelta)), salt: bytes32(0)
@@ -94,9 +92,7 @@ contract PointsHookTest is Test, Deployers, ERC1155TokenReceiver {
         // Include hookdata with user address to receive points
         bytes memory hookdata = abi.encode(address(this));
 
-        swapRouter.swap{
-            value: 0.001 ether
-        }(
+        swapRouter.swap{value: 0.001 ether}(
             key,
             SwapParams({
                 zeroForOne: true, amountSpecified: -0.001 ether, sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
