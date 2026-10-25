@@ -18,6 +18,7 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
 import {SqrtPriceMath} from "v4-core/libraries/SqrtPriceMath.sol";
 import {LiquidityAmounts} from "@uniswap/v4-core/test/utils/LiquidityAmounts.sol";
+import {SortTokens} from "@uniswap/v4-core/test/utils/SortTokens.sol";
 
 import {ERC1155TokenReceiver} from "solmate/src/tokens/ERC1155.sol";
 
@@ -169,9 +170,8 @@ contract PointsHookTest is Test, Deployers, ERC1155TokenReceiver {
         tokenB.approve(address(modifyLiquidityRouter), type(uint256).max);
         tokenA.approve(address(swapRouter), type(uint256).max);
         tokenB.approve(address(swapRouter), type(uint256).max);
-        Currency tokenACurrency = Currency.wrap(address(tokenA));
-        Currency tokenBCurrency = Currency.wrap(address(tokenB));
-        (PoolKey memory newKey,) = initPool(tokenACurrency, tokenBCurrency, hook, 3000, SQRT_PRICE_1_1);
+        (Currency currency0, Currency currency1) = SortTokens.sort(tokenA, tokenB);
+        (PoolKey memory newKey,) = initPool(currency0, currency1, hook, 3000, SQRT_PRICE_1_1);
         // Add liquidity (use a large amount to ensure swap succeeds)
         uint128 liquidityDelta = 5_000 ether;
         modifyLiquidityRouter.modifyLiquidity(
