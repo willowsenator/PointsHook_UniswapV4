@@ -23,4 +23,7 @@ remappings = [
 "v4-periphery/=lib/v4-periphery/"
 ]
 
+[profile.ci]
+fuzz = { runs = 10000 }
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -13,6 +13,7 @@ import {PoolId} from "v4-core/types/PoolId.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
 import {LiquidityAmounts} from "@uniswap/v4-core/test/utils/LiquidityAmounts.sol";
+import {SortTokens} from "@uniswap/v4-core/test/utils/SortTokens.sol";
 import {ERC1155TokenReceiver} from "solmate/src/tokens/ERC1155.sol";
 import {PointsHook} from "../src/PointsHook.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
@@ -51,7 +52,8 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
 
     function test_fuzz_points_awarded_on_eth_to_token_swap(uint96 ethAmount, address user) public {
         ethAmount = uint96(bound(ethAmount, 1e15, 1e18)); // 0.001 to 1 ETH
-        vm.assume(user != address(0));
+        // A deployed contract as the swapper (the pool manager, a router) corrupts the swap's accounting
+        vm.assume(user != address(0) && user.code.length == 0);
         uint256 poolId = uint256(PoolId.unwrap(key.toId()));
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
@@ -81,7 +83,7 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
 
     function test_fuzz_no_points_for_token_to_eth_swap(uint96 tokenAmount, address user) public {
         tokenAmount = uint96(bound(tokenAmount, 1e15, 1e18));
-        vm.assume(user != address(0) && user != address(this));
+        vm.assume(user != address(0) && user.code.length == 0);
         uint256 poolId = uint256(PoolId.unwrap(key.toId()));
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
@@ -119,9 +121,8 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
         tokenB.approve(address(modifyLiquidityRouter), type(uint256).max);
         tokenA.approve(address(swapRouter), type(uint256).max);
         tokenB.approve(address(swapRouter), type(uint256).max);
-        Currency tokenACurrency = Currency.wrap(address(tokenA));
-        Currency tokenBCurrency = Currency.wrap(address(tokenB));
-        (PoolKey memory newKey,) = initPool(tokenACurrency, tokenBCurrency, hook, 3000, SQRT_PRICE_1_1);
+        (Currency currency0, Currency currency1) = SortTokens.sort(tokenA, tokenB);
+        (PoolKey memory newKey,) = initPool(currency0, currency1, hook, 3000, SQRT_PRICE_1_1);
         uint128 liquidityDelta = 5_000 ether;
         modifyLiquidityRouter.modifyLiquidity(
             newKey,
@@ -131,11 +132,14 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
             ""
         );
         uint256 poolId = uint256(PoolId.unwrap(newKey.toId()));
+        // Checked after the tokens deploy, so the swapper is none of them either
+        vm.assume(user.code.length == 0);
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
-        tokenA.mint(user, amount);
+        // zeroForOne sells currency0, whichever mock sorted first
+        MockERC20(Currency.unwrap(currency0)).mint(user, amount);
         vm.prank(user);
-        tokenA.approve(address(swapRouter), amount);
+        MockERC20(Currency.unwrap(currency0)).approve(address(swapRouter), amount);
         vm.prank(user);
         swapRouter.swap(
             newKey,
