@@ -133,9 +133,10 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
         uint256 poolId = uint256(PoolId.unwrap(newKey.toId()));
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
-        tokenA.mint(user, amount);
+        // zeroForOne sells currency0, whichever mock sorted first
+        MockERC20(Currency.unwrap(currency0)).mint(user, amount);
         vm.prank(user);
-        tokenA.approve(address(swapRouter), amount);
+        MockERC20(Currency.unwrap(currency0)).approve(address(swapRouter), amount);
         vm.prank(user);
         swapRouter.swap(
             newKey,
