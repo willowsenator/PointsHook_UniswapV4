@@ -225,9 +225,8 @@ contract PointsHookTest is Test, Deployers, ERC1155TokenReceiver {
     }
 
     function test_no_points_for_zero_eth_swap() public {
-        // Expect revert: SwapAmountCannotBeZero()
         bytes memory hookdata = abi.encode(address(this));
-        vm.expectRevert("SwapAmountCannotBeZero()");
+        vm.expectRevert(IPoolManager.SwapAmountCannotBeZero.selector);
         swapRouter.swap{value: 0}(
             key,
             SwapParams({zeroForOne: true, amountSpecified: int256(0), sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1}),
