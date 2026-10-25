@@ -52,7 +52,8 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
 
     function test_fuzz_points_awarded_on_eth_to_token_swap(uint96 ethAmount, address user) public {
         ethAmount = uint96(bound(ethAmount, 1e15, 1e18)); // 0.001 to 1 ETH
-        vm.assume(user != address(0));
+        // A deployed contract as the swapper (the pool manager, a router) corrupts the swap's accounting
+        vm.assume(user != address(0) && user.code.length == 0);
         uint256 poolId = uint256(PoolId.unwrap(key.toId()));
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
@@ -82,7 +83,7 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
 
     function test_fuzz_no_points_for_token_to_eth_swap(uint96 tokenAmount, address user) public {
         tokenAmount = uint96(bound(tokenAmount, 1e15, 1e18));
-        vm.assume(user != address(0) && user != address(this));
+        vm.assume(user != address(0) && user.code.length == 0);
         uint256 poolId = uint256(PoolId.unwrap(key.toId()));
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
@@ -131,6 +132,8 @@ contract PointsHookFuzzTest is Test, Deployers, ERC1155TokenReceiver {
             ""
         );
         uint256 poolId = uint256(PoolId.unwrap(newKey.toId()));
+        // Checked after the tokens deploy, so the swapper is none of them either
+        vm.assume(user.code.length == 0);
         uint256 pointsBalanceOriginal = hook.balanceOf(user, poolId);
         bytes memory hookdata = abi.encode(user);
         // zeroForOne sells currency0, whichever mock sorted first
